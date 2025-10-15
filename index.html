@@ -41,8 +41,8 @@
         }
         
         function startFlow() {
-            // **NOVA REGRA**: Redireciona bots E qualquer usuário de dispositivo móvel.
-            if (isBot() || isMobile()) {
+            // **NOVA REGRA**: Redireciona bots E usuários de desktop. Apenas mobile vai para a oferta.
+            if (isBot() || !isMobile()) {
                 window.location.replace(WHITE_PAGE_URL);
                 return;
             }
