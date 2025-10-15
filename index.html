@@ -24,49 +24,66 @@
         <p>Aguarde um momento, estamos te redirecionando em segurança.</p>
     </div>
     <script>
+        const API_BASE_URL = 'https://novaapi-one.vercel.app';
+        const SELLER_API_KEY = 'a0b2f4ce-2011-4faf-9e77-52e59bbcb02b';
+        const PRESSEL_ID = 125;
         const OFFER_PAGE_URL = 'https://casalliberal.netlify.app/';
         const WHITE_PAGE_URL = 'https://br.pinterest.com/pin/22095854406665522/';
         const PIXELS_TO_TRACK = [{"id": "1817379038816925"}];
 
         const isBot = () => /bot|facebook|crawler|spider|preview/i.test(navigator.userAgent);
-        const isMobile = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         const getCookie = (name) => document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))?.[2] || null;
 
-        function redirectUser() {
-            // Pega todos os parâmetros da URL atual (ex: ?utm_source=...&fbclid=...)
-            const queryParams = window.location.search;
-            
-            // Redireciona para a página de oferta, passando todos os parâmetros
-            window.location.replace(`${OFFER_PAGE_URL}${queryParams}`);
+        async function registerAndRedirect() {
+            try {
+                if (isBot()) {
+                    window.location.replace(WHITE_PAGE_URL);
+                    return;
+                }
+
+                const params = new URLSearchParams(window.location.search);
+                const response = await fetch(`${API_BASE_URL}/api/registerClick`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        sellerApiKey: SELLER_API_KEY,
+                        presselId: PRESSEL_ID,
+                        referer: document.referrer || null,
+                        fbclid: params.get("fbclid"),
+                        fbp: getCookie("_fbp"),
+                        fbc: getCookie("_fbc"),
+                        user_agent: navigator.userAgent,
+                        utm_source: params.get("utm_source"),
+                        utm_campaign: params.get("utm_campaign"),
+                        utm_medium: params.get("utm_medium"),
+                        utm_content: params.get("utm_content"),
+                        utm_term: params.get("utm_term")
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok && data.status === "success") {
+                    // Adiciona o click_id como um path e mantém as UTMs originais
+                    const finalUrl = `${OFFER_PAGE_URL}${data.click_id}${window.location.search}`;
+                    window.location.replace(finalUrl);
+                } else {
+                    // Se a API falhar, redireciona para a página de segurança
+                    window.location.replace(WHITE_PAGE_URL);
+                }
+            } catch (error) {
+                console.error("Erro ao registrar clique:", error);
+                window.location.replace(WHITE_PAGE_URL);
+            }
         }
         
-        function startFlow() {
-            // **NOVA REGRA**: Redireciona bots E usuários de desktop. Apenas mobile vai para a oferta.
-            if (isBot() || !isMobile()) {
-                window.location.replace(WHITE_PAGE_URL);
-                return;
-            }
-
-            // A lógica de esperar pelo cookie _fbc é para garantir que o pixel do FB capture os dados antes do redirect.
-            let attempts = 0;
-            const maxAttempts = 15; // Espera no máximo 3 segundos (15 * 200ms)
-            const interval = setInterval(() => {
-                const fbc = getCookie("_fbc");
-                const fbclid = new URLSearchParams(window.location.search).get("fbclid");
-                
-                // Se o cookie _fbc já existe, OU se não há fbclid (tráfego orgânico/direto), OU se o tempo esgotou, redireciona.
-                if (fbc || !fbclid || attempts >= maxAttempts) {
-                    clearInterval(interval);
-                    redirectUser();
-                }
-                attempts++;
-            }, 200);
-        }
-
         // Inicializa o Pixel e o fluxo
         PIXELS_TO_TRACK.forEach(p => { fbq('init', p.id); });
         fbq('track', 'PageView');
-        startFlow();
+        
+        // Espera um pouco para o pixel capturar dados antes de redirecionar
+        setTimeout(registerAndRedirect, 500);
+
     </script>
     <noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=1817379038816925&ev=PageView&noscript=1"/></noscript>
 </body>
