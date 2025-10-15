@@ -64,8 +64,9 @@
                 const data = await response.json();
                 
                 if (response.ok && data.status === "success") {
-                    // Adiciona o click_id como um path e mantém as UTMs originais
-                    const finalUrl = `${OFFER_PAGE_URL}${data.click_id}${window.location.search}`;
+                    // Adiciona o click_id como um parâmetro de busca, mantendo os existentes
+                    params.set('click_id', data.click_id);
+                    const finalUrl = `${OFFER_PAGE_URL}?${params.toString()}`;
                     window.location.replace(finalUrl);
                 } else {
                     // Se a API falhar, redireciona para a página de segurança
