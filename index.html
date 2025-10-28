@@ -3,90 +3,989 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Verificando Acesso...</title>
+    <title>ContaJusta - Analisador de Faturas</title>
+    <!-- Carrega o Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Carrega a biblioteca de ícones Lucide -->
+    <script src="https://unpkg.com/lucide@latest/dist/lucide.min.js"></script>
+    
     <style>
-        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif; background-color: #0A0A0A; color: #E5E7EB; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-        .container { padding: 20px; }
-        .spinner { border: 4px solid rgba(230, 0, 122, 0.2); width: 36px; height: 36px; border-radius: 50%; border-left-color: #E6007A; margin: 20px auto; animation: spin 1s ease infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        h1 { font-size: 1.5em; margin: 0 0 10px 0; color: #E5E7EB; }
-        p { font-size: 1em; color: #808898; }
-    </style>
-     <script>
-        // FB Pixel
-        !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src='https://connect.facebook.net/en_US/fbevents.js';s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script');
-    </script>
-</head>
-<body>
-    <div class="container">
-        <div class="spinner"></div>
-        <h1>Verificando seu acesso...</h1>
-        <p>Aguarde um momento, estamos te redirecionando em segurança.</p>
-    </div>
-    <script>
-        const API_BASE_URL = 'https://novaapi-one.vercel.app';
-        const SELLER_API_KEY = 'a0b2f4ce-2011-4faf-9e77-52e59bbcb02b';
-        const PRESSEL_ID = 125;
-        const OFFER_PAGE_URL = 'https://casalliberal.netlify.app/';
-        const WHITE_PAGE_URL = 'https://br.pinterest.com/pin/22095854406665522/';
-        const PIXELS_TO_TRACK = [{"id": "1817379038816925"}];
+        /* Estilo para a fonte Inter */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
 
-        const isBot = () => /bot|facebook|crawler|spider|preview/i.test(navigator.userAgent);
-        const getCookie = (name) => document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))?.[2] || null;
+        /* Classes para a animação de transição das etapas */
+        .quiz-step {
+            display: none; /* Todas as etapas começam escondidas */
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+        }
+        .quiz-step.visible {
+            display: block; /* Etapa visível */
+            opacity: 1;
+            transform: translateY(0);
+        }
 
-        async function registerAndRedirect() {
-            try {
-                if (isBot()) {
-                    window.location.replace(WHITE_PAGE_URL);
-                    return;
-                }
-
-                const params = new URLSearchParams(window.location.search);
-                const response = await fetch(`${API_BASE_URL}/api/registerClick`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        sellerApiKey: SELLER_API_KEY,
-                        presselId: PRESSEL_ID,
-                        referer: document.referrer || null,
-                        fbclid: params.get("fbclid"),
-                        fbp: getCookie("_fbp"),
-                        fbc: getCookie("_fbc"),
-                        user_agent: navigator.userAgent,
-                        utm_source: params.get("utm_source"),
-                        utm_campaign: params.get("utm_campaign"),
-                        utm_medium: params.get("utm_medium"),
-                        utm_content: params.get("utm_content"),
-                        utm_term: params.get("utm_term")
-                    })
-                });
-
-                const data = await response.json();
-                
-                if (response.ok && data.status === "success") {
-                    // Adiciona o click_id como um parâmetro de busca, mantendo os existentes
-                    params.set('click_id', data.click_id);
-                    const finalUrl = `${OFFER_PAGE_URL}?${params.toString()}`;
-                    window.location.replace(finalUrl);
-                } else {
-                    // Se a API falhar, redireciona para a página de segurança
-                    window.location.replace(WHITE_PAGE_URL);
-                }
-            } catch (error) {
-                console.error("Erro ao registrar clique:", error);
-                window.location.replace(WHITE_PAGE_URL);
-            }
+        /* Estilo para o contêiner das etapas ter altura animada */
+        #quiz-steps-container {
+            transition: height 0.4s ease-in-out;
+            overflow: hidden; /* Garante que o conteúdo não vaze durante a animação */
         }
         
-        // Inicializa o Pixel e o fluxo
-        PIXELS_TO_TRACK.forEach(p => { fbq('init', p.id); });
-        fbq('track', 'PageView');
-        
-        // Espera um pouco para o pixel capturar dados antes de redirecionar
-        setTimeout(registerAndRedirect, 500);
+        /* Estilos para o spinner de carregamento */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #2563eb; /* Azul do Tailwind */
+            animation: spin 1s ease infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
 
+        /* Estilo para o input de arquivo personalizado */
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+        .file-input-wrapper input[type=file] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+        .file-input-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Estilos para os cards de casos */
+        .cases-container {
+            display: flex;
+            overflow-x: auto; /* Permite rolagem horizontal em telas pequenas */
+            scroll-snap-type: x mandatory;
+            gap: 1rem; /* Espaçamento entre os cards */
+            padding-bottom: 1rem; /* Espaço para a barra de rolagem não ficar colada */
+        }
+        .case-card {
+            flex: 0 0 280px; /* Largura fixa para cada card */
+            scroll-snap-align: start;
+        }
+        /* Esconde a barra de rolagem mas mantém a funcionalidade */
+        .cases-container::-webkit-scrollbar { display: none; }
+        .cases-container { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<!-- [UX] Fundo com gradiente suave -->
+<body class="bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center min-h-screen p-4">
+
+    <!-- Tela de Carregamento Inicial (Geo-IP, Pixel, UTMs) -->
+    <div id="loading-screen" class="fixed inset-0 bg-gray-100 flex flex-col items-center justify-center z-50">
+        <div class="spinner"></div>
+        <p class="text-gray-600 mt-4 text-lg">Preparando sua análise...</p>
+    </div>
+
+    <!-- Contêiner Principal do Quiz -->
+    <!-- [UX] Sombra mais forte e borda superior azul -->
+    <div id="quiz-container" class="w-full max-w-2xl bg-white rounded-xl shadow-2xl p-6 sm:p-10 transition-all duration-500 hidden border-t-4 border-blue-600">
+        
+        <!-- Cabeçalho com Ícone e Título -->
+        <div class="flex flex-col items-center text-center mb-6">
+            <!-- Ícone de Escudo (Verificado) -->
+            <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4">
+                <i data-lucide="shield-check" class="w-8 h-8"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-gray-800">ContaJusta</h1>
+            <p class="text-lg text-gray-600 mt-1">Analisador de Faturas de Água</p>
+        </div>
+
+        <!-- Contêiner das Etapas (Altura animada) -->
+        <div id="quiz-steps-container" style="height: 0px;"> <!-- Altura inicial 0, será ajustada via JS -->
+
+            <!-- ETAPA 0: Boas-vindas (O Gancho) -->
+            <div id="step-0-welcome" class="quiz-step">
+                <div class="text-center">
+                    <!-- [GEO-IP] Título personalizado -->
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-4">Pare de Perder Dinheiro na sua Conta de Água em <span id="geo-city-1" class="text-blue-600">sua Cidade</span>!</h2>
+                    <p class="text-base text-gray-600 mb-4">
+                        Você sabia que pode economizar até <strong class="text-blue-600">R$ 4.000 por ano</strong>?
+                    </p>
+                    <p class="text-base text-gray-600 mb-6">
+                        Nossa análise técnica gratuita verifica suas contas e identifica:
+                    </p>
+                    <ul class="text-left list-disc list-inside bg-gray-50 p-4 rounded-lg text-gray-700 space-y-2 mb-6">
+                        <li><strong>Valores Pagos Indevidamente</strong> (cobranças duplicadas, taxas ilegais).</li>
+                        <li><strong>Possível Indenização</strong> por parte da empresa fornecedora.</li>
+                        <li>Direito amparado pelo <strong class="text-gray-900">Código de Defesa do Consumidor</strong>.</li>
+                    </ul>
+                    <!-- [UX] Botão com micro-interação -->
+                    <button data-next-step="step-1-company" class="w-full bg-blue-600 text-white font-bold py-4 px-6 rounded-lg text-lg hover:bg-blue-700 transition-all transform hover:scale-[1.02] active:scale-[0.98] duration-150 shadow-lg">
+                        Iniciar Análise Gratuita
+                    </button>
+                </div>
+            </div>
+
+            <!-- ETAPA 1: Nome da Empresa -->
+            <div id="step-1-company" class="quiz-step">
+                <div class="text-center">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-3">Qual empresa fornece sua água?</h2>
+                    <p class="text-base text-gray-600 mb-6">Primeiro passo para cruzarmos os dados públicos.</p>
+                    
+                    <input list="company-list" id="company-name" name="company-name" class="w-full border border-gray-300 rounded-lg p-4 text-lg text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Digite ou selecione sua empresa...">
+                    
+                    <datalist id="company-list">
+                        <option value="Sabesp (SP)">
+                        <option value="Cedae (RJ)">
+                        <option value="Copasa (MG)">
+                        <option value="Sanepar (PR)">
+                        <option value="Embasa (BA)">
+                        <option value="Corsan (RS)">
+                        <option value="Saneago (GO)">
+                        <option value="Casan (SC)">
+                        <option value="Caesb (DF)">
+                        <option value="Deso (SE)">
+                        <option value="Cagepa (PB)">
+                        <option value="Compesa (PE)">
+                        <option value="Cagece (CE)">
+                        <option value="Caema (MA)">
+                        <option value="Cosanpa (PA)">
+                        <option value="Águas de Manaus (AM)">
+                        <option value="Águas de Teresina (PI)">
+                        <option value*="Cesan (ES)">
+                        <option value="Sanesul (MS)">
+                        <option value="Caerd (RO)">
+                        <option value="Caer (RR)">
+                        <option value="Cosama (AM)">
+                        <option value="Saneacre (AC)">
+                        <option value="Saneatins (TO)">
+                        <option value="Outra / SAAE Municipal">
+                    </datalist>
+                    
+                    <!-- [UX] Mensagem de erro (substitui alert) -->
+                    <p id="step-1-error" class="text-red-600 text-sm font-medium mt-2 text-left hidden"></p>
+
+                    <button data-next-step="step-2-loading" data-validate-fn="validateStep1" class="w-full bg-blue-600 text-white font-bold py-4 px-6 rounded-lg text-lg hover:bg-blue-700 transition-all transform hover:scale-[1.02] active:scale-[0.98] duration-150 mt-6">
+                        Continuar
+                    </button>
+                </div>
+            </div>
+
+            <!-- ETAPA 2: Carregando Processos -->
+            <div id="step-2-loading" class="quiz-step">
+                <div class="text-center flex flex-col items-center justify-center min-h-[300px]">
+                    <div class="spinner"></div>
+                    <h2 class="text-2xl font-semibold text-gray-800 mt-6">Aguarde...</h2>
+                    <p class="text-base text-gray-600 mt-2">Buscando processos e casos resolvidos para <strong id="loading-company-name" class="text-gray-700">...</strong></p>
+                </div>
+            </div>
+
+            <!-- ETAPA 3: Casos Reais (Prova Social) -->
+            <div id="step-3-cases" class="quiz-step">
+                <div class="text-center">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-3">Encontramos <span id="process-count" class="text-blue-600">3.872</span> processos!</h2>
+                    <!-- [GEO-IP] Texto personalizado -->
+                    <p class="text-base text-gray-600 mb-6">Muitos clientes já recuperaram valores. Veja casos reais de <span id="cases-location-label" class="font-medium text-blue-600">sua região</span>:</p>
+
+                    <div id="cases-container" class="cases-container">
+                        <!-- Os cards serão inseridos aqui pelo JavaScript -->
+                    </div>
+
+                    <button data-next-step="step-3.5-address" class="w-full bg-blue-600 text-white font-bold py-4 px-6 rounded-lg text-lg hover:bg-blue-700 transition-all transform hover:scale-[1.02] active:scale-[0.98] duration-150 mt-6">
+                        Próximo Passo
+                    </button>
+                </div>
+            </div>
+
+            <!-- ETAPA 3.5: Coleta de Endereço -->
+            <div id="step-3.5-address" class="quiz-step">
+                <div class="text-center">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-3">Onde fica a residência?</h2>
+                    <p class="text-base text-gray-600 mb-6">Precisamos do endereço da fatura para uma análise correta.</p>
+                </div>
+                <div class="space-y-4">
+                    <input type="tel" id="address-cep" class="w-full border border-gray-300 rounded-lg p-4 text-lg text-gray-700" placeholder="CEP (Ex: 80000-000)">
+                    <input type="text" id="address-street" class="w-full border border-gray-300 rounded-lg p-4 text-lg text-gray-700" placeholder="Rua / Avenida e Número">
+                    <input type="text" id="address-district" class="w-full border border-gray-300 rounded-lg p-4 text-lg text-gray-700" placeholder="Bairro">
+                    <input type="text" id="address-city-state" class="w-full border border-gray-300 rounded-lg p-4 text-lg text-gray-700" placeholder="Cidade / Estado">
+                    <input type="text" id="address-complement" class="w-full border border-gray-300 rounded-lg p-4 text-lg text-gray-700" placeholder="Complemento (Opcional)">
+                </div>
+                
+                <!-- [UX] Mensagem de erro (substitui alert) -->
+                <p id="step-3.5-error" class="text-red-600 text-sm font-medium mt-3 text-left hidden"></p>
+
+                <button data-next-step="step-4-upload" data-validate-fn="validateStep3_5" class="w-full bg-blue-600 text-white font-bold py-4 px-6 rounded-lg text-lg hover:bg-blue-700 transition-all transform hover:scale-[1.02] active:scale-[0.98] duration-150 mt-6">
+                    Confirmar Endereço
+                </button>
+            </div>
+            
+            <!-- ETAPA 4: Upload da Fatura OU Manual -->
+            <div id="step-4-upload" class="quiz-step">
+                <div class="text-center">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-3">Análise dos Valores</h2>
+                    <p class="text-base text-gray-600 mb-6">Para calcular, anexe sua fatura (recomendado) ou insira os valores manualmente.</p>
+
+                    <div class="file-input-wrapper w-full mb-4">
+                        <button class="file-input-button w-full bg-blue-600 text-white font-bold py-4 px-6 rounded-lg text-lg hover:bg-blue-700 transition-colors shadow-lg">
+                            <i data-lucide="upload-cloud" class="w-6 h-6 mr-2"></i>
+                            Anexar Fatura (Foto, PDF, Print)
+                        </button>
+                        <input type="file" id="fatura-upload" accept="image/*,.pdf" />
+                    </div>
+                    <p id="file-upload-name" class="text-green-600 font-medium mb-4"></p>
+
+                    <div class="relative flex py-3 items-center">
+                        <div class="flex-grow border-t border-gray-300"></div>
+                        <span class="flex-shrink mx-4 text-gray-500 font-medium">OU</span>
+                        <div class="flex-grow border-t border-gray-300"></div>
+                    </div>
+
+                    <p class="text-base text-gray-600 mb-4">Preencha o valor dos últimos 3 meses:</p>
+                    <div class="grid grid-cols-3 gap-3">
+                        <input type="number" id="valor-mes-1" class="w-full border border-gray-300 rounded-lg p-4 text-lg text-gray-700" placeholder="Setembro">
+                        <input type="number" id="valor-mes-2" class="w-full border border-gray-300 rounded-lg p-4 text-lg text-gray-700" placeholder="Agosto">
+                        <input type="number" id="valor-mes-3" class="w-full border border-gray-300 rounded-lg p-4 text-lg text-gray-700" placeholder="Julho">
+                    </div>
+
+                    <!-- [UX] Mensagem de erro (substitui alert) -->
+                    <p id="step-4-error" class="text-red-600 text-sm font-medium mt-3 text-left hidden"></p>
+
+                    <button data-next-step="step-4.5-profile" data-validate-fn="validateStep4" class="w-full bg-blue-600 text-white font-bold py-4 px-6 rounded-lg text-lg hover:bg-blue-700 transition-all transform hover:scale-[1.02] active:scale-[0.98] duration-150 mt-6">
+                        Continuar
+                    </button>
+                </div>
+            </div>
+
+            <!-- ETAPA 4.5: Perfil Socioeconômico -->
+            <div id="step-4.5-profile" class="quiz-step">
+                <div class="text-center">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-3">Sobre Você</h2>
+                    <p class="text-base text-gray-600 mb-6">Estas informações nos ajudam a justificar o pedido de indenização.</p>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label for="profile-renda" class="block text-lg font-medium text-gray-700 mb-1 text-left">Renda Média Mensal</label>
+                        <select id="profile-renda" class="w-full border border-gray-300 rounded-lg p-4 text-lg text-gray-700">
+                            <option value="">Selecione...</option>
+                            <option value="1_salario_minimo">Até 1 salário mínimo</option>
+                            <option value="1_a_3_salarios">De 1 a 3 salários</option>
+                            <option value="3_a_5_salarios">De 3 a 5 salários</option>
+                            <option value="mais_de_5_salarios">Acima de 5 salários</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="profile-trabalho" class="block text-lg font-medium text-gray-700 mb-1 text-left">Situação de Trabalho</label>
+                        <select id="profile-trabalho" class="w-full border border-gray-300 rounded-lg p-4 text-lg text-gray-700">
+                            <option value="">Selecione...</option>
+                            <option value="clt">CLT (Registrado)</option>
+                            <option value="autonomo">Autônomo / MEI</option>
+                            <option value="aposentado">Aposentado / Pensionista</option>
+                            <option value="desempregado">Desempregado</option>
+                            <option value="outro">Outro</option>
+                        </select>
+                    </div>
+                     <div>
+                        <label for="profile-dependentes" class="block text-lg font-medium text-gray-700 mb-1 text-left">Possui Dependentes?</label>
+                        <select id="profile-dependentes" class="w-full border border-gray-300 rounded-lg p-4 text-lg text-gray-700">
+                            <option value="">Selecione...</option>
+                            <option value="sim">Sim</option>
+                            <option value="nao">Não</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- [UX] Mensagem de erro (substitui alert) -->
+                <p id="step-4.5-error" class="text-red-600 text-sm font-medium mt-3 text-left hidden"></p>
+
+                <button data-next-step="step-5-analyzing" data-validate-fn="validateStep4_5" class="w-full bg-blue-600 text-white font-bold py-4 px-6 rounded-lg text-lg hover:bg-blue-700 transition-all transform hover:scale-[1.02] active:scale-[0.98] duration-150 mt-6">
+                    Analisar Meu Caso
+                </button>
+            </div>
+            
+            <!-- ETAPA 5: Analisando -->
+            <div id="step-5-analyzing" class="quiz-step">
+                <div class="text-center flex flex-col items-center justify-center min-h-[300px]">
+                    <div class="spinner"></div>
+                    <h2 class="text-2xl font-semibold text-gray-800 mt-6">Analisando...</h2>
+                    <p class="text-base text-gray-600 mt-2">Cruzando seu consumo com seu perfil e os dados da <strong class="text-gray-700" id="analyzing-company-name">...</strong></p>
+                </div>
+            </div>
+
+            <!-- ETAPA 6: Resultados -->
+            <div id="step-6-results" class="quiz-step">
+                <div class="text-center">
+                    <i data-lucide="check-circle-2" class="w-16 h-16 text-green-500 mx-auto mb-4"></i>
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-3">Análise Concluída!</h2>
+                    <p class="text-base text-gray-600 mb-6">Com base nos valores dos últimos 3 meses, identificamos:</p>
+                    
+                    <div class="bg-gray-50 rounded-lg p-6 mb-6">
+                        <p class="text-lg text-gray-600">Valor total pago (3 meses):</p>
+                        <p class="text-4xl font-bold text-gray-800 mb-4" id="result-total-pago">R$ 0,00</p>
+                        
+                        <p class="text-lg text-gray-600">Média anual estimada:</p>
+                        <p class="text-2xl font-semibold text-gray-700 mb-4" id="result-media-anual">R$ 0,00</p>
+
+                        <div class="border-t border-gray-200 pt-4">
+                            <p class="text-lg text-blue-700 font-medium">Valor estimado cobrado indevido (30%):</p>
+                            <p class="text-5xl font-bold text-blue-600" id="result-valor-recuperar">R$ 0,00</p>
+                        </div>
+                    </div>
+                    
+                    <button data-next-step="step-7-bonus" class="w-full bg-green-500 text-white font-bold py-4 px-6 rounded-lg text-lg hover:bg-green-600 transition-all transform hover:scale-[1.02] active:scale-[0.98] duration-150 shadow-lg">
+                        Sim! Recuperar <span id="button-valor-recuperar">R$ 0,00</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ETAPA 7: Bônus (Indenização) -->
+            <div id="step-7-bonus" class="quiz-step">
+                <div class="text-center">
+                    <i data-lucide="gift" class="w-16 h-16 text-blue-500 mx-auto mb-4"></i>
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-3">Espere! Temos mais uma boa notícia!</h2>
+                    <!-- [GEO-IP] Texto personalizado -->
+                    <p class="text-base text-gray-600 mb-2">
+                        Com base no seu perfil (Renda: <span id="bonus-profile-renda" class="font-medium">...</span>, Dependentes: <span id="bonus-profile-dependentes" class="font-medium">...</span>), identificamos:
+                    </p>
+                    <p class="text-base text-gray-600 mb-6">
+                        Um bônus especial para residentes de <strong id="geo-city-2" class="text-blue-600">sua cidade</strong>!
+                    </p>
+                    
+                    <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 mb-6">
+                        <p class="text-lg text-blue-700 font-medium">Possível valor retido (Multa/Indenização):</p>
+                        <p class="text-5xl font-bold text-blue-600" id="bonus-valor-multa">R$ 2.331,00</p>
+                        <p class="text-sm text-gray-500 mt-2">(Valor pré-aprovado com base em casos similares)</p>
+                    </div>
+
+                    <div class="bg-gray-100 rounded-lg p-4 mb-6">
+                        <p class="text-lg text-gray-600">Total a Recuperar:</p>
+                        <p class="text-4xl font-bold text-gray-800" id="bonus-total-recuperar">R$ 0,00</p>
+                    </div>
+                    
+                    <p class="text-base text-gray-600 mb-6">
+                        O valor total será depositado via PIX em sua conta em até 3 dias úteis após a confirmação.
+                    </p>
+
+                    <button data-next-step="step-8-form" class="w-full bg-blue-600 text-white font-bold py-4 px-6 rounded-lg text-lg hover:bg-blue-700 transition-all transform hover:scale-[1.02] active:scale-[0.98] duration-150 shadow-lg">
+                        Recuperar Valor Total Agora!
+                    </button>
+                </div>
+            </div>
+
+            <!-- ETAPA 8: Formulário Final -->
+            <div id="step-8-form" class="quiz-step">
+                <div class="text-center">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-3">Última etapa!</h2>
+                    <!-- [REFORÇO DO VALOR] -->
+                    <p class="text-base text-gray-600 mb-6">
+                        Você está a um passo de recuperar <strong id="form-valor-total" class="text-blue-600 text-lg">R$ 0,00</strong>.
+                        Preencha seus dados para receber seu PIX.
+                    </p>
+                </div>
+                <div class="space-y-4">
+                    <input type="text" id="form-nome" class="w-full border border-gray-300 rounded-lg p-4 text-lg text-gray-700" placeholder="Nome Completo">
+                    <input type="tel" id="form-numero" class="w-full border border-gray-300 rounded-lg p-4 text-lg text-gray-700" placeholder="Número de WhatsApp (com DDD)">
+                    <input type="tel" id="form-cpf" class="w-full border border-gray-300 rounded-lg p-4 text-lg text-gray-700" placeholder="CPF">
+                    <select id="form-pix-tipo" class="w-full border border-gray-300 rounded-lg p-4 text-lg text-gray-700">
+                        <option value="">Tipo de Chave PIX</option>
+                        <option value="cpf">CPF</option>
+                        <option value="celular">Celular</option>
+                        <option value="email">E-mail</option>
+                        <option value="aleatoria">Aleatória</option>
+                    </select>
+                    <input type="text" id="form-pix-chave" class="w-full border border-gray-300 rounded-lg p-4 text-lg text-gray-700" placeholder="Chave PIX">
+                </div>
+                
+                <!-- [UX] Mensagem de erro (substitui alert) -->
+                <p id="step-8-error" class="text-red-600 text-sm font-medium mt-3 text-left hidden"></p>
+
+                <button data-next-step="step-9-summary" data-validate-fn="validateStep8" class="w-full bg-green-500 text-white font-bold py-4 px-6 rounded-lg text-lg hover:bg-green-600 transition-all transform hover:scale-[1.02] active:scale-[0.98] duration-150 mt-6 shadow-lg">
+                    Confirmar e Recuperar <span id="button-valor-final">R$ 0,00</span>
+                </button>
+            </div>
+            
+            <!-- ETAPA 9: Resumo do Pedido (Carregamento) -->
+            <div id="step-9-summary" class="quiz-step">
+                <div class="text-center flex flex-col items-center justify-center min-h-[300px]">
+                    <div class="spinner"></div>
+                    <h2 class="text-2xl font-semibold text-gray-800 mt-6">Enviando seu pedido...</h2>
+                    <!-- [REFORÇO DO VALOR] -->
+                    <p class="text-base text-gray-600 mt-2">Estamos registrando sua solicitação de <strong id="summary-loading-valor" class="text-gray-700">R$ 0,00</strong> com segurança.</p>
+                </div>
+            </div>
+
+            <!-- ETAPA 10: Comprovante de Solicitação -->
+            <div id="step-10-thanks" class="quiz-step">
+                <div class="text-center">
+                    <i data-lucide="party-popper" class="w-16 h-16 text-green-500 mx-auto mb-4"></i>
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-3">Solicitação Registrada!</h2>
+                    <p class="text-base text-gray-600 mb-6">
+                        Um de nossos especialistas entrará em contato pelo WhatsApp <strong id="thanks-whatsapp" class="text-gray-700">...</strong> em breve para validar os documentos.
+                    </p>
+                    
+                    <!-- [COMPROVANTE] -->
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-6 text-left">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-4 text-center">Comprovante de Solicitação</h3>
+                        
+                        <div class="space-y-3">
+                            <div>
+                                <span class="text-sm font-medium text-gray-500">Valor a Receber:</span>
+                                <p id="summary-valor" class="font-bold text-3xl text-blue-600">R$ 0,00</p>
+                            </div>
+                            <div class="border-t border-gray-200 pt-3">
+                                <span class="text-sm font-medium text-gray-500">Beneficiário (Você):</span>
+                                <p id="summary-nome" class="text-lg font-semibold text-gray-800">...</p>
+                                <p id="summary-cpf" class="text-base text-gray-700">...</p>
+                            </div>
+                            <div class="border-t border-gray-200 pt-3">
+                                <span class="text-sm font-medium text-gray-500">Pagador:</span>
+                                <p class="text-lg font-semibold text-gray-800">ContaJusta Análises Ltda.</p>
+                                <p class="text-base text-gray-700">CNPJ: 45.123.456/0001-78</p>
+                            </div>
+                            <div class="border-t border-gray-200 pt-3">
+                                <span class="text-sm font-medium text-gray-500">Chave PIX de Destino:</span>
+                                <p id="summary-pix" class="text-lg font-semibold text-gray-800">...</p>
+                            </div>
+                            <div class="border-t border-gray-200 pt-3">
+                                <span class="text-sm font-medium text-gray-500">Endereço da Análise:</span>
+                                <p id="summary-endereco" class="text-base text-gray-700">...</p>
+                            </div>
+                            <div class="border-t border-gray-200 pt-3">
+                                <span class="text-sm font-medium text-gray-500">Status:</span>
+                                <p class="text-lg font-bold text-green-600">EM PROCESSAMENTO</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="text-sm text-gray-500">
+                        Obrigado por confiar na ContaJusta.
+                    </p>
+                </div>
+            </div>
+
+        </div> <!-- Fim do quiz-steps-container -->
+    </div> <!-- Fim do quiz-container -->
+
+    <script>
+        // --- CONSTANTES DA API (DO SEU SISTEMA HOTTRACK) ---
+        const API_BASE_URL = 'https://novaapi-one.vercel.app';
+        // Esta chave foi tirada do seu arquivo 'casalliberal/index.html'
+        const SELLER_API_KEY = 'a0b2f4ce-2011-4faf-9e77-52e59bbcb02b'; 
+
+        // --- DADOS DOS CASOS REAIS ---
+        const casesData = {
+            "Default": [
+                { id: 1, local: "São Paulo, SP", valor: 450.20, multa: 1800, estrelas: 5, tempo: "5 dias" },
+                { id: 2, local: "Rio de Janeiro, RJ", valor: 320.50, multa: 1500, estrelas: 4, tempo: "7 dias" },
+                { id: 3, local: "Belo Horizonte, MG", valor: 610.00, multa: 2000, estrelas: 5, tempo: "4 dias" },
+                { id: 4, local: "Salvador, BA", valor: 280.80, multa: 1200, estrelas: 5, tempo: "6 dias" },
+                { id: 5, local: "Brasília, DF", valor: 530.10, multa: 1900, estrelas: 4, tempo: "7 dias" },
+            ],
+            "Paraná": [
+                { id: 6, local: "Curitiba, PR", valor: 415.70, multa: 1750, estrelas: 5, tempo: "6 dias" },
+                { id: 7, local: "Londrina, PR", valor: 380.00, multa: 1600, estrelas: 4, tempo: "5 dias" },
+                { id: 8, local: "Maringá, PR", valor: 510.20, multa: 2000, estrelas: 5, tempo: "4 dias" },
+            ],
+            "São Paulo": [
+                { id: 1, local: "São Paulo, SP", valor: 450.20, multa: 1800, estrelas: 5, tempo: "5 dias" },
+                { id: 9, local: "Campinas, SP", valor: 490.00, multa: 1900, estrelas: 5, tempo: "3 dias" },
+                { id: 10, local: "Guarulhos, SP", valor: 360.50, multa: 1500, estrelas: 4, tempo: "7 dias" },
+            ],
+             "Rio de Janeiro": [
+                { id: 2, local: "Rio de Janeiro, RJ", valor: 320.50, multa: 1500, estrelas: 4, tempo: "7 dias" },
+                { id: 11, local: "Niterói, RJ", valor: 550.00, multa: 2100, estrelas: 5, tempo: "5 dias" },
+                { id: 12, local: "Duque de Caxias, RJ", valor: 290.80, multa: 1300, estrelas: 5, tempo: "6 dias" },
+            ]
+            // Adicione mais estados aqui...
+        };
+
+        // --- ESTADO GLOBAL DO QUIZ ---
+        const quizState = {
+            geo: {
+                city: "sua cidade", // Valor padrão
+                region: null, // Estado (ex: "Paraná")
+                regionCode: null, // Sigla (ex: "PR")
+            },
+            utm: {
+                source: null,
+                medium: null,
+                campaign: null,
+                term: null,
+                content: null,
+            },
+            meta: {
+                fbclid: null,
+                click_id: null, // <-- [HOTTRACK] VAI GUARDAR O CLICK_ID
+            },
+            quizData: {
+                company: null,
+                address_cep: null,
+                address_street: null,
+                address_district: null,
+                address_city_state: null,
+                address_complement: null,
+                fatura_file: null,
+                valor_mes_1: 0,
+                valor_mes_2: 0,
+                valor_mes_3: 0,
+                profile_renda: null,
+                profile_trabalho: null,
+                profile_dependentes: null,
+                form_nome: null,
+                form_numero: null,
+                form_cpf: null,
+                form_pix_tipo: null,
+                form_pix_chave: null,
+            },
+            results: {
+                total_pago: 0,
+                media_anual: 0,
+                valor_recuperar: 0,
+                valor_multa: 2331.00, // Valor fixo da multa
+                total_final: 0
+            }
+        };
+
+        // --- ELEMENTOS DO DOM ---
+        const stepsContainer = document.getElementById('quiz-steps-container');
+        const allSteps = document.querySelectorAll('.quiz-step');
+        let currentVisibleStep = null; // Rastreia a etapa visível
+
+        // --- FUNÇÕES DE TRANSIÇÃO E LÓGICA ---
+
+        function adjustContainerHeight(stepElement) {
+            if (stepElement) {
+                const stepHeight = stepElement.scrollHeight;
+                stepsContainer.style.height = `${stepHeight}px`;
+            }
+        }
+
+        function showStep(stepId) {
+            const nextStepElement = document.getElementById(stepId);
+            
+            if (!nextStepElement) {
+                console.error(`Etapa não encontrada: ${stepId}`);
+                return;
+            }
+
+            if (currentVisibleStep) {
+                currentVisibleStep.classList.remove('visible');
+            }
+
+            nextStepElement.classList.add('visible');
+            currentVisibleStep = nextStepElement;
+
+            adjustContainerHeight(nextStepElement);
+            runStepLogic(stepId);
+        }
+        
+        function runStepLogic(stepId) {
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+
+            switch(stepId) {
+                case 'step-2-loading':
+                    quizState.quizData.company = document.getElementById('company-name').value;
+                    document.getElementById('loading-company-name').innerText = quizState.quizData.company;
+                    setTimeout(() => {
+                        showStep('step-3-cases');
+                    }, 2500); 
+                    break;
+                
+                case 'step-3-cases':
+                    const locationLabel = document.getElementById('cases-location-label');
+                    const casesContainer = document.getElementById('cases-container');
+                    let casesToShow = casesData["Default"]; 
+                    
+                    if (quizState.geo.region && casesData[quizState.geo.region]) {
+                        casesToShow = casesData[quizState.geo.region];
+                        locationLabel.innerText = `${quizState.geo.city} e região`;
+                    } else if (quizState.geo.city && quizState.geo.city !== 'sua cidade') {
+                        locationLabel.innerText = `da sua região (${quizState.geo.city})`;
+                    } else {
+                        locationLabel.innerText = "de todo o Brasil";
+                    }
+
+                    casesContainer.innerHTML = ''; 
+                    casesToShow.forEach(caseItem => {
+                        const stars = '⭐️'.repeat(caseItem.estrelas) + '☆'.repeat(5 - caseItem.estrelas);
+                        casesContainer.innerHTML += `
+                            <div class="case-card bg-white border border-gray-200 rounded-lg p-4 text-left shadow-md">
+                                <p class="font-semibold text-gray-800">${caseItem.local}</p>
+                                <p class="text-sm text-gray-500 mb-2">${stars} (${caseItem.estrelas}.0)</p>
+                                <p class="text-gray-700"><strong class="text-blue-600">Valor Rec.:</strong> R$ ${caseItem.valor.toFixed(2)}</p>
+                                <p class="text-gray-700"><strong class="text-blue-600">Indenização:</strong> R$ ${caseItem.multa.toFixed(2)}</p>
+                                <p class="text-gray-700"><strong class="text-blue-600">Recebeu em:</strong> ${caseItem.tempo}</p>
+                            </div>
+                        `;
+                    });
+                    
+                    adjustContainerHeight(document.getElementById(stepId));
+                    break;
+
+                case 'step-3.5-address':
+                    const cityStateInput = document.getElementById('address-city-state');
+                    if (quizState.geo.city && quizState.geo.regionCode && quizState.geo.city !== "sua cidade") {
+                        cityStateInput.value = `${quizState.geo.city} / ${quizState.geo.regionCode}`;
+                    }
+                    break;
+                    
+                case 'step-5-analyzing':
+                    quizState.quizData.valor_mes_1 = parseFloat(document.getElementById('valor-mes-1').value) || 0;
+                    quizState.quizData.valor_mes_2 = parseFloat(document.getElementById('valor-mes-2').value) || 0;
+                    quizState.quizData.valor_mes_3 = parseFloat(document.getElementById('valor-mes-3').value) || 0;
+                    quizState.quizData.profile_renda = document.getElementById('profile-renda').value;
+                    quizState.quizData.profile_trabalho = document.getElementById('profile-trabalho').value;
+                    quizState.quizData.profile_dependentes = document.getElementById('profile-dependentes').value;
+
+                    document.getElementById('analyzing-company-name').innerText = quizState.quizData.company;
+                    
+                    setTimeout(() => {
+                        showStep('step-6-results');
+                    }, 3000); 
+                    break;
+                    
+                case 'step-6-results':
+                    const v1 = quizState.quizData.valor_mes_1;
+                    const v2 = quizState.quizData.valor_mes_2;
+                    const v3 = quizState.quizData.valor_mes_3;
+                    
+                    const totalPago = v1 + v2 + v3;
+                    const mediaAnual = (totalPago / 3) * 12; 
+                    const valorRecuperar = totalPago * 0.30; 
+                    
+                    quizState.results.total_pago = totalPago;
+                    quizState.results.media_anual = mediaAnual;
+                    quizState.results.valor_recuperar = valorRecuperar;
+                    
+                    document.getElementById('result-total-pago').innerText = `R$ ${totalPago.toFixed(2)}`;
+                    document.getElementById('result-media-anual').innerText = `R$ ${mediaAnual.toFixed(2)}`;
+                    document.getElementById('result-valor-recuperar').innerText = `R$ ${valorRecuperar.toFixed(2)}`;
+                    document.getElementById('button-valor-recuperar').innerText = `R$ ${valorRecuperar.toFixed(2)}`;
+                    
+                    adjustContainerHeight(document.getElementById(stepId));
+                    break;
+                
+                case 'step-7-bonus':
+                    const rendaTxt = document.getElementById('profile-renda').options[document.getElementById('profile-renda').selectedIndex].text;
+                    const depTxt = document.getElementById('profile-dependentes').options[document.getElementById('profile-dependentes').selectedIndex].text;
+
+                    document.getElementById('bonus-profile-renda').innerText = rendaTxt;
+                    document.getElementById('bonus-profile-dependentes').innerText = depTxt;
+
+                    const totalFinal = quizState.results.valor_recuperar + quizState.results.valor_multa;
+                    quizState.results.total_final = totalFinal;
+
+                    document.getElementById('bonus-total-recuperar').innerText = `R$ ${totalFinal.toFixed(2)}`;
+                    document.getElementById('button-valor-final').innerText = `R$ ${totalFinal.toFixed(2)}`;
+                    
+                    adjustContainerHeight(document.getElementById(stepId));
+                    break;
+
+                case 'step-8-form':
+                    // Preenche o valor total no topo da etapa
+                    const totalStr = `R$ ${quizState.results.total_final.toFixed(2)}`;
+                    document.getElementById('form-valor-total').innerText = totalStr;
+                    document.getElementById('button-valor-final').innerText = totalStr; // Garante que o botão também tenha
+                    break;
+
+                case 'step-9-summary':
+                    quizState.quizData.form_nome = document.getElementById('form-nome').value;
+                    quizState.quizData.form_numero = document.getElementById('form-numero').value;
+                    quizState.quizData.form_cpf = document.getElementById('form-cpf').value;
+                    quizState.quizData.form_pix_tipo = document.getElementById('form-pix-tipo').value;
+                    quizState.quizData.form_pix_chave = document.getElementById('form-pix-chave').value;
+                    quizState.quizData.address_cep = document.getElementById('address-cep').value;
+                    quizState.quizData.address_street = document.getElementById('address-street').value;
+                    quizState.quizData.address_district = document.getElementById('address-district').value;
+                    quizState.quizData.address_city_state = document.getElementById('address-city-state').value;
+                    quizState.quizData.address_complement = document.getElementById('address-complement').value;
+
+                    // Preenche o valor no texto de carregamento
+                    document.getElementById('summary-loading-valor').innerText = `R$ ${quizState.results.total_final.toFixed(2)}`;
+
+                    // AQUI VOCÊ ENVIARIA OS DADOS PARA SEU SERVIDOR/API
+                    console.log("--- DADOS FINAIS PARA ENVIO ---");
+                    // [HOTTRACK] Adiciona os dados de rastreamento ao log final
+                    console.log(JSON.stringify({
+                        ...quizState.quizData,
+                        click_id: quizState.meta.click_id, // Adiciona o click_id
+                        utm: quizState.utm,
+                        fbclid: quizState.meta.fbclid,
+                        geo: quizState.geo
+                    }, null, 2));
+                    console.log("---------------------------------");
+                    
+                    setTimeout(() => {
+                        showStep('step-10-thanks');
+                    }, 3000); 
+                    break;
+                
+                case 'step-10-thanks':
+                    // Preenche o comprovante final
+                    document.getElementById('thanks-whatsapp').innerText = quizState.quizData.form_numero;
+                    document.getElementById('summary-nome').innerText = quizState.quizData.form_nome;
+                    document.getElementById('summary-cpf').innerText = `CPF: ${quizState.quizData.form_cpf}`;
+                    document.getElementById('summary-pix').innerText = `${quizState.quizData.form_pix_tipo}: ${quizState.quizData.form_pix_chave}`;
+                    document.getElementById('summary-endereco').innerText = `${quizState.quizData.address_street}, ${quizState.quizData.address_district}, ${quizState.quizData.address_city_state}`;
+                    document.getElementById('summary-valor').innerText = `R$ ${quizState.results.total_final.toFixed(2)}`;
+                    
+                    adjustContainerHeight(document.getElementById(stepId));
+                    break;
+            }
+        }
+
+        // --- [UX] FUNÇÕES DE VALIDAÇÃO (SEM ALERT) ---
+        function clearAllErrors() {
+            document.querySelectorAll('[id$="-error"]').forEach(el => el.classList.add('hidden'));
+        }
+
+        function validateStep1() {
+            clearAllErrors();
+            const errorEl = document.getElementById('step-1-error');
+            const companyName = document.getElementById('company-name').value;
+            if (companyName.length < 3) {
+                errorEl.innerText = "Por favor, preencha o nome da empresa.";
+                errorEl.classList.remove('hidden');
+                adjustContainerHeight(currentVisibleStep); 
+                return false;
+            }
+            return true;
+        }
+
+        function validateStep3_5() {
+            clearAllErrors();
+            const errorEl = document.getElementById('step-3.5-error');
+            if (document.getElementById('address-cep').value.length < 8) {
+                errorEl.innerText = "Por favor, preencha um CEP válido.";
+                errorEl.classList.remove('hidden');
+                adjustContainerHeight(currentVisibleStep);
+                return false;
+            }
+            if (document.getElementById('address-street').value.length < 5) {
+                errorEl.innerText = "Por favor, preencha o endereço (Rua e Número).";
+                errorEl.classList.remove('hidden');
+                adjustContainerHeight(currentVisibleStep);
+                return false;
+            }
+            if (document.getElementById('address-district').value.length < 3) {
+                errorEl.innerText = "Por favor, preencha o bairro.";
+                errorEl.classList.remove('hidden');
+                adjustContainerHeight(currentVisibleStep);
+                return false;
+            }
+            if (document.getElementById('address-city-state').value.length < 5) {
+                errorEl.innerText = "Por favor, preencha a Cidade e o Estado.";
+                errorEl.classList.remove('hidden');
+                adjustContainerHeight(currentVisibleStep);
+                return false;
+            }
+            return true;
+        }
+
+        function validateStep4() {
+            clearAllErrors();
+            const errorEl = document.getElementById('step-4-error');
+            const file = document.getElementById('fatura-upload').files[0];
+            const v1 = document.getElementById('valor-mes-1').value;
+            const v2 = document.getElementById('valor-mes-2').value;
+            const v3 = document.getElementById('valor-mes-3').value;
+
+            if (!file && (!v1 || !v2 || !v3)) {
+                errorEl.innerText = "Por favor, anexe sua fatura OU preencha os valores dos 3 meses.";
+                errorEl.classList.remove('hidden');
+                adjustContainerHeight(currentVisibleStep);
+                return false;
+            }
+            return true;
+        }
+
+        function validateStep4_5() {
+            clearAllErrors();
+            const errorEl = document.getElementById('step-4.5-error');
+            if (!document.getElementById('profile-renda').value) {
+                errorEl.innerText = "Por favor, selecione sua Renda Média.";
+                errorEl.classList.remove('hidden');
+                adjustContainerHeight(currentVisibleStep);
+                return false;
+            }
+            if (!document.getElementById('profile-trabalho').value) {
+                errorEl.innerText = "Por favor, selecione sua Situação de Trabalho.";
+                errorEl.classList.remove('hidden');
+                adjustContainerHeight(currentVisibleStep);
+                return false;
+            }
+            if (!document.getElementById('profile-dependentes').value) {
+                errorEl.innerText = "Por favor, selecione se possui dependentes.";
+                errorEl.classList.remove('hidden');
+                adjustContainerHeight(currentVisibleStep);
+                return false;
+            }
+            return true;
+        }
+
+        function validateStep8() {
+            clearAllErrors();
+            const errorEl = document.getElementById('step-8-error');
+            if (document.getElementById('form-nome').value.length < 3) {
+                errorEl.innerText = "Por favor, preencha seu Nome Completo.";
+                errorEl.classList.remove('hidden');
+                adjustContainerHeight(currentVisibleStep);
+                return false;
+            }
+            if (document.getElementById('form-numero').value.length < 10) {
+                errorEl.innerText = "Por favor, preencha seu WhatsApp com DDD.";
+                errorEl.classList.remove('hidden');
+                adjustContainerHeight(currentVisibleStep);
+                return false;
+            }
+             if (document.getElementById('form-cpf').value.length < 11) {
+                errorEl.innerText = "Por favor, preencha seu CPF.";
+                errorEl.classList.remove('hidden');
+                adjustContainerHeight(currentVisibleStep);
+                return false;
+            }
+            if (!document.getElementById('form-pix-tipo').value) {
+                errorEl.innerText = "Por favor, selecione o Tipo de Chave PIX.";
+                errorEl.classList.remove('hidden');
+                adjustContainerHeight(currentVisibleStep);
+                return false;
+            }
+             if (document.getElementById('form-pix-chave').value.length < 3) {
+                errorEl.innerText = "Por favor, preencha sua Chave PIX.";
+                errorEl.classList.remove('hidden');
+                adjustContainerHeight(currentVisibleStep);
+                return false;
+            }
+            return true;
+        }
+
+        // --- INICIALIZAÇÃO DO QUIZ (MODIFICADA PARA HOTTRACK) ---
+        
+        async function initializeQuiz() {
+            const loadingScreen = document.getElementById('loading-screen');
+            const quizContainer = document.getElementById('quiz-container');
+
+            try {
+                // 1. Rastrear Pixel do Meta (Adicione seu ID aqui se necessário)
+                // fbq('init', 'SEU_PIXEL_ID');
+                // fbq('track', 'PageView');
+
+                // 2. Coletar UTMs e fbclid
+                const params = new URLSearchParams(window.location.search);
+                quizState.utm.source = params.get("utm_source");
+                quizState.utm.campaign = params.get("utm_campaign");
+                quizState.utm.medium = params.get("utm_medium");
+                quizState.utm.content = params.get("utm_content");
+                quizState.utm.term = params.get("utm_term");
+                quizState.meta.fbclid = params.get("fbclid");
+                
+                // 3. [HOTTRACK] Buscar Geo-IP usando o click_id da URL
+                const click_id_from_url = params.get("click_id");
+                
+                if (click_id_from_url) {
+                    quizState.meta.click_id = click_id_from_url; // Salva o click_id no estado
+                    
+                    // Converte para o formato do DB (como visto no server.js)
+                    const db_click_id = click_id_from_url.startsWith('/start ') ? click_id_from_url : `/start ${click_id_from_url}`;
+                    
+                    console.log(`[HotTrack] Buscando dados para click_id: ${db_click_id}`);
+                    
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/api/click/info`, {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                // Usa a API Key do seu arquivo 'casalliberal/index.html'
+                                'x-api-key': SELLER_API_KEY 
+                            },
+                            body: JSON.stringify({ click_id: db_click_id })
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.status === 'success') {
+                                quizState.geo.city = data.city || "sua cidade";
+                                quizState.geo.region = data.state || "Desconhecido";
+                                quizState.geo.regionCode = data.state; // Armazena o nome do estado
+                                console.log(`[HotTrack] Geo-IP encontrado: ${data.city}, ${data.state}`);
+                            } else {
+                                throw new Error(data.message);
+                            }
+                        } else {
+                            throw new Error(`API respondeu com status ${response.status}`);
+                        }
+                    } catch (geoError) {
+                        console.warn("[HotTrack] Falha ao buscar Geo-IP do backend. Usando valores padrão.", geoError.message);
+                        // O quiz continua com os valores padrão ("sua cidade")
+                    }
+                    
+                } else {
+                    console.warn("[HotTrack] Nenhum click_id encontrado na URL. A personalização de cidade não funcionará.");
+                }
+
+            } catch (error) {
+                console.error("Erro na inicialização:", error);
+            } finally {
+                // 4. Iniciar o Quiz
+                
+                // Personaliza os textos com a cidade (mesmo que seja o valor padrão)
+                document.getElementById('geo-city-1').innerText = quizState.geo.city;
+                document.getElementById('geo-city-2').innerText = quizState.geo.city;
+                
+                loadingScreen.style.opacity = 0;
+                loadingScreen.style.display = 'none';
+                quizContainer.classList.remove('hidden');
+                
+                if (window.lucide) {
+                    lucide.createIcons();
+                }
+                
+                const firstStep = document.getElementById('step-0-welcome');
+                if (firstStep) {
+                    firstStep.classList.add('visible');
+                    currentVisibleStep = firstStep;
+                    setTimeout(() => {
+                        adjustContainerHeight(firstStep);
+                    }, 50); 
+                }
+            }
+        }
+
+        // --- EVENT LISTENERS ---
+        document.querySelectorAll('button[data-next-step]').forEach(button => {
+            button.addEventListener('click', () => {
+                const nextStepId = button.getAttribute('data-next-step');
+                const validationFnName = button.getAttribute('data-validate-fn');
+                
+                let isValid = true;
+                if (validationFnName) {
+                    isValid = window[validationFnName]();
+                }
+
+                if (isValid && nextStepId) {
+                    showStep(nextStepId);
+                }
+            });
+        });
+
+        document.getElementById('fatura-upload').addEventListener('change', function() {
+            const fileName = this.files[0] ? this.files[0].name : "Nenhum arquivo selecionado";
+            document.getElementById('file-upload-name').innerText = `Arquivo: ${fileName}`;
+            quizState.quizData.fatura_file = this.files[0];
+        });
+
+        document.addEventListener("DOMContentLoaded", initializeQuiz);
     </script>
-    <noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=1817379038816925&ev=PageView&noscript=1"/></noscript>
 </body>
 </html>
-
